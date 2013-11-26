@@ -9,7 +9,7 @@
 from rauth.compat import urlencode
 from rauth.session import OAuth1Session, OAuth2Session, OflySession
 from rauth.utils import ENTITY_METHODS, parse_utf8_qsl
-import json
+import json,sys
 PROCESS_TOKEN_ERROR = ('Decoder failed to handle {key} with data as returned '
                        'by provider. A different decoder may be needed. '
                        'Provider returned: {raw}')
@@ -18,7 +18,8 @@ PROCESS_TOKEN_ERROR = ('Decoder failed to handle {key} with data as returned '
 def process_token_request(r, decoder, *args):
     try:
         data=json.loads(r.content.decode('utf-8'))
-        
+        if "error" in data:
+            return data
         #data = decoder(r.content)
         return tuple(data[key] for key in args)
     except KeyError as e:  # pragma: no cover
@@ -541,9 +542,12 @@ class OAuth2Service(Service):
         :type \*\*kwargs: dict
         '''
         r = self.get_raw_access_token(method, **kwargs)
-        access_token, = process_token_request(r, decoder, key)
-        return access_token
-
+        data=json.loads(r.content.decode('utf-8'))
+        if "access_token" in data:
+            access_token, = process_token_request(r, decoder, key)
+            return access_token
+        else:
+            return data
     def get_auth_session(self, method='POST', **kwargs):
         '''
         Gets an access token, intializes a new authenticated session with the
